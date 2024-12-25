@@ -1,17 +1,6 @@
 name: 🔨 Build Mudlet (windows)
 on:
-  push:
-    branches: [master, development, release-*]
-    tags: [Mudlet-*]
-  pull_request:
   workflow_dispatch:
-    inputs:
-      scheduled:
-        description: 'Imitate a scheduled build'
-        required: false
-        default: 'false'
-  schedule:
-    - cron: '0 2 * * *'
 
 jobs:
   compile-mudlet:
