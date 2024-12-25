@@ -39,17 +39,28 @@ jobs:
       shell: msys2 {0}
       run: |
         mkdir -p $GITHUB_WORKSPACE/src/release
+        # Copy the main executable
         cp build-MINGW64/release/mudlet.exe $GITHUB_WORKSPACE/src/release/
+        # Copy required DLLs from mingw
+        cp /mingw64/bin/*.dll $GITHUB_WORKSPACE/src/release/ || true
+        # List what we copied
+        echo "Contents of release directory:"
+        ls -la $GITHUB_WORKSPACE/src/release/
 
     - name: Run Lua tests
       shell: msys2 {0}
       working-directory: ${{github.workspace}}/src/release
       timeout-minutes: 5
-      run: ./mudlet.exe --profile "Mudlet self-test" --mirror
       env:
+        PATH: ${{github.workspace}}/src/release:$PATH
         AUTORUN_BUSTED_TESTS: 'true'
         TESTS_DIRECTORY: ${{github.workspace}}/src/mudlet-lua/tests
         QUIT_MUDLET_AFTER_TESTS: 'true'
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        ./mudlet.exe --profile "Mudlet self-test" --mirror
 
     - name: Check test results
       shell: msys2 {0}
