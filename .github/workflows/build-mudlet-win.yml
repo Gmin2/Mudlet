@@ -24,8 +24,10 @@ jobs:
         include:
           - os: windows-2019
             buildname: 'windows64'
+            run_tests: 'true'
           - os: windows-2019
             buildname: 'windows32'
+            run_tests: 'true'
 
     steps:
     - name: Checkout Mudlet source code
@@ -83,6 +85,34 @@ jobs:
     - name: (Windows) Package
       shell: msys2 {0}
       run: $GITHUB_WORKSPACE/CI/package-mudlet-for-windows.sh
+
+    - name: (Windows) Prep binary for running tests
+      if: matrix.run_tests == 'true'
+      shell: msys2 {0}
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/src/release
+        cp build-MINGW*/release/mudlet.exe $GITHUB_WORKSPACE/src/release/
+
+    - name: (Windows) Run Lua tests
+      if: matrix.run_tests == 'true'
+      shell: msys2 {0}
+      working-directory: ${{github.workspace}}/src/release
+      timeout-minutes: 5
+      run: ./mudlet.exe --profile "Mudlet self-test" --mirror
+      env:
+        AUTORUN_BUSTED_TESTS: 'true'
+        TESTS_DIRECTORY: ${{github.workspace}}/src/mudlet-lua/tests
+        QUIT_MUDLET_AFTER_TESTS: 'true'
+
+    - name: Passed Lua tests
+      if: matrix.run_tests == 'true'
+      shell: msys2 {0}
+      run: |
+        if [ -e /tmp/busted-tests-failed ]
+        then
+          echo "Lua tests failed - see the action called 'Run Lua tests' above for detailed output."
+          exit 1
+        fi
 
     - name: (Windows) Login to Azure
       uses: azure/login@v2
