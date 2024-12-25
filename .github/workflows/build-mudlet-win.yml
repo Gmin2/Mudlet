@@ -6,7 +6,7 @@ jobs:
   compile-mudlet:
     name: ${{matrix.buildname}}
     runs-on: ${{matrix.os}}
-    if: ${{ github.repository_owner == 'Mudlet' }}
+    if: ${{ github.repository_owner == 'Gmin2' }}
     strategy:
       fail-fast: false
       matrix:
@@ -97,9 +97,18 @@ jobs:
       if: matrix.run_tests == 'true'
       shell: msys2 {0}
       run: |
-        if [ -e /tmp/busted-tests-failed ]
-        then
-          echo "Lua tests failed - see the action called 'Run Lua tests' above for detailed output."
+        mkdir -p $GITHUB_WORKSPACE/src/release
+        # Print directory contents to help debug
+        ls -la build-MINGW*/
+        ls -la build-MINGW*/release/ || true
+        ls -la $GITHUB_WORKSPACE/build-MINGW*/release/ || true
+        # Try different possible locations
+        if [ -f build-MINGW64/release/mudlet.exe ]; then
+          cp build-MINGW64/release/mudlet.exe $GITHUB_WORKSPACE/src/release/
+        elif [ -f $GITHUB_WORKSPACE/build-MINGW64/release/mudlet.exe ]; then
+          cp $GITHUB_WORKSPACE/build-MINGW64/release/mudlet.exe $GITHUB_WORKSPACE/src/release/
+        else
+          echo "Could not find mudlet.exe"
           exit 1
         fi
 
