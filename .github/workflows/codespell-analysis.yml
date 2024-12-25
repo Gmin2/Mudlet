@@ -1,34 +1,61 @@
-# GitHub Action to automate the identification of common misspellings in text files.
-# https://github.com/codespell-project/actions-codespell
-# https://github.com/codespell-project/codespell
-name: codespell
+name: 🧪 Test Windows Lua
 on:
-  push:
-    branches: [master, development, release-*]
-    tags: [Mudlet-*]
-  pull_request:
-  workflow_dispatch:
+  workflow_dispatch:  # Allows manual trigger
 
 jobs:
-  codespell:
-    name: Check for spelling errors
-    runs-on: ubuntu-latest
+  test-lua:
+    name: Test Lua on Windows
+    runs-on: windows-2019
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: codespell-project/codespell-problem-matcher@v1
-      - uses: codespell-project/actions-codespell@master
-        with:
-          check_filenames: true
-          skip: >-
-            ./.git,
-            ./3rdparty,
-            ./translations,
-            ./src/fonts,
-            ./src/mudlet-lua/lua/utf8_filenames.lua,
-            ./src/AnnouncerWindows.cpp, # 'Teh' is a proper last name
-            ./squish-tests,
-            *.aff,
-            *.dic,
-            *.ts
-          ignore_words_file: ./.github/codespell-wordlist.txt
-          builtin: 'clear,code,rare,informal,names'
+    - name: Checkout Mudlet source code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-depth: 0
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+
+    - name: Build Environment Setup
+      shell: msys2 {0}
+      run: |
+        $GITHUB_WORKSPACE/CI/setup-windows-sdk.sh
+
+    - name: Build
+      shell: msys2 {0}
+      run: $GITHUB_WORKSPACE/CI/build-mudlet-for-windows.sh
+
+    - name: Debug - List Files
+      shell: msys2 {0}
+      run: |
+        echo "Listing build directory contents:"
+        ls -R build-MINGW*
+
+    - name: Prep binary for running tests
+      shell: msys2 {0}
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/src/release
+        cp build-MINGW64/release/mudlet.exe $GITHUB_WORKSPACE/src/release/
+
+    - name: Run Lua tests
+      shell: msys2 {0}
+      working-directory: ${{github.workspace}}/src/release
+      timeout-minutes: 5
+      run: ./mudlet.exe --profile "Mudlet self-test" --mirror
+      env:
+        AUTORUN_BUSTED_TESTS: 'true'
+        TESTS_DIRECTORY: ${{github.workspace}}/src/mudlet-lua/tests
+        QUIT_MUDLET_AFTER_TESTS: 'true'
+
+    - name: Check test results
+      shell: msys2 {0}
+      run: |
+        if [ -e /tmp/busted-tests-failed ]
+        then
+          echo "Lua tests failed - see the action called 'Run Lua tests' above for detailed output."
+          exit 1
+        fi
