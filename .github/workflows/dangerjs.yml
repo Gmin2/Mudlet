@@ -1,23 +1,61 @@
-name: DangerJS
-
+name: 🧪 Test Windows Lua
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:  # Allows manual trigger
 
 jobs:
-  danger:
-    runs-on: ubuntu-latest
-    #if: github.event_name  == 'pull_request' # only run pull requests, no really
+  test-lua:
+    name: Test Lua on Windows
+    runs-on: windows-2019
+    
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Mudlet source code
+      uses: actions/checkout@v4
       with:
-        ref: ${{github.event.pull_request.head.ref}}
-        repository: ${{github.event.pull_request.head.repo.full_name}}
+        submodules: true
         fetch-depth: 0
-    - name: Install yarn dependencies and run danger
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+
+    - name: Build Environment Setup
+      shell: msys2 {0}
       run: |
-        yarn add danger --dev
-        yarn danger ci
+        $GITHUB_WORKSPACE/CI/setup-windows-sdk.sh
+
+    - name: Build
+      shell: msys2 {0}
+      run: $GITHUB_WORKSPACE/CI/build-mudlet-for-windows.sh
+
+    - name: Debug - List Files
+      shell: msys2 {0}
+      run: |
+        echo "Listing build directory contents:"
+        ls -R build-MINGW*
+
+    - name: Prep binary for running tests
+      shell: msys2 {0}
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/src/release
+        cp build-MINGW64/release/mudlet.exe $GITHUB_WORKSPACE/src/release/
+
+    - name: Run Lua tests
+      shell: msys2 {0}
+      working-directory: ${{github.workspace}}/src/release
+      timeout-minutes: 5
+      run: ./mudlet.exe --profile "Mudlet self-test" --mirror
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        DANGER_DISABLE_TRANSPILATION: "true"
+        AUTORUN_BUSTED_TESTS: 'true'
+        TESTS_DIRECTORY: ${{github.workspace}}/src/mudlet-lua/tests
+        QUIT_MUDLET_AFTER_TESTS: 'true'
+
+    - name: Check test results
+      shell: msys2 {0}
+      run: |
+        if [ -e /tmp/busted-tests-failed ]
+        then
+          echo "Lua tests failed - see the action called 'Run Lua tests' above for detailed output."
+          exit 1
+        fi
