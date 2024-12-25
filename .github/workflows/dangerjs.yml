@@ -59,3 +59,4 @@ jobs:
           echo "Lua tests failed - see the action called 'Run Lua tests' above for detailed output."
           exit 1
         fi
+        
